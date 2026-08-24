@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react'
-import withAuth from '../utils/withAuth.jsx'
+import withAuth from '../utils/withAuth'
 import { useNavigate } from 'react-router-dom'
 import "../App.css";
 import { Button, IconButton, TextField } from '@mui/material';
@@ -30,7 +30,13 @@ function HomeComponent() {
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center" }}>
-       <button>History</button>
+                    <IconButton onClick={
+                        () => {
+                            navigate("/history")
+                        }
+                    }>
+                        <RestoreIcon />
+                    </IconButton>
                     <p>History</p>
 
                     <Button onClick={() => {

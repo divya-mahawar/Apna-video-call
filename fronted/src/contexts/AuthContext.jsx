@@ -2,7 +2,7 @@ import axios from "axios";
 import httpStatus from "http-status";
 import { createContext, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import server from "../environment.js";
+import server from "../environment";
 
 
 export const AuthContext = createContext({});
@@ -22,23 +22,22 @@ export const AuthProvider = ({ children }) => {
 
     const router = useNavigate();
 
-   const handleRegister = async(name, username, password)=>{
-    try{
-        let request = await axios.post(
-            "http://localhost:8000/api/v1/users/register",
-            {
-                name,
-                username,
-                password
+    const handleRegister = async (name, username, password) => {
+        try {
+            let request = await client.post("/register", {
+                name: name,
+                username: username,
+                password: password
+            })
+
+
+            if (request.status === httpStatus.CREATED) {
+                return request.data.message;
             }
-        )
-
-        return request.data.message;
-
-    }catch(err){
-        throw err;
+        } catch (err) {
+            throw err;
+        }
     }
-}
 
     const handleLogin = async (username, password) => {
         try {

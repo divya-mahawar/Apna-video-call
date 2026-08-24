@@ -13,8 +13,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { AuthContext } from '../contexts/AuthContext';
-import Snackbar from "@mui/material/Snackbar";
-
+import { Snackbar } from '@mui/material';
 
 
 
@@ -26,11 +25,11 @@ export default function Authentication() {
 
     
 
-    const [username, setUsername] = React.useState("");
-    const [password, setPassword] = React.useState("");
-    const [name, setName] = React.useState("");
-    const [error, setError] = React.useState("");
-    const [message, setMessage] = React.useState("");
+    const [username, setUsername] = React.useState();
+    const [password, setPassword] = React.useState();
+    const [name, setName] = React.useState();
+    const [error, setError] = React.useState();
+    const [message, setMessage] = React.useState();
 
 
     const [formState, setFormState] = React.useState(0);
@@ -96,7 +95,7 @@ export default function Authentication() {
                         }}
                     >
                         <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-                            Register
+                            <LockOutlinedIcon />
                         </Avatar>
 
 
