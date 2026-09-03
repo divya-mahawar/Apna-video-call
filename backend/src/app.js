@@ -28,6 +28,10 @@ app.use("/api/v1/users", userRoute);
 app.use("/api/v1/meetings", meetingRoute);
 app.use("/api/v1/ai", aiRoute);
 
+app.get("/", (req, res) => {
+  res.send("Video Call Backend is running!");
+});
+
 
 app.get("/home", async (req, res) => {
     res.send("Server is running");

@@ -7,7 +7,9 @@ const groq = new Groq({
 });
 
 
-// ==================== TRANSCRIBE AUDIO ====================
+// =====================================================
+// TRANSCRIBE AUDIO
+// =====================================================
 
 const transcribeAudio = async (req, res) => {
     try {
@@ -18,15 +20,18 @@ const transcribeAudio = async (req, res) => {
             });
         }
 
-        const transcription = await groq.audio.transcriptions.create({
-            file: fs.createReadStream(req.file.path),
-            model: "whisper-large-v3-turbo",
-            language: "en",
-            response_format: "json"
-        });
+        const transcription =
+            await groq.audio.transcriptions.create({
+                file: fs.createReadStream(req.file.path),
+                model: "whisper-large-v3-turbo",
+                language: "en",
+                response_format: "json"
+            });
 
         // Delete temporary audio file
-        fs.unlinkSync(req.file.path);
+        if (fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
 
         return res.status(200).json({
             transcript: transcription.text
@@ -34,9 +39,15 @@ const transcribeAudio = async (req, res) => {
 
     } catch (error) {
 
-        console.log("AI transcription error:", error);
+        console.log(
+            "AI transcription error:",
+            error
+        );
 
-        if (req.file?.path && fs.existsSync(req.file.path)) {
+        if (
+            req.file?.path &&
+            fs.existsSync(req.file.path)
+        ) {
             fs.unlinkSync(req.file.path);
         }
 
@@ -48,8 +59,12 @@ const transcribeAudio = async (req, res) => {
 };
 
 
-// ==================== ANALYZE MEETING ====================
+// =====================================================
+// ANALYZE MEETING
+// =====================================================
+
 const analyzeMeeting = async (req, res) => {
+
     try {
 
         const {
@@ -58,28 +73,74 @@ const analyzeMeeting = async (req, res) => {
             username
         } = req.body;
 
-        console.log("========== ANALYZE MEETING ==========");
-        console.log("Meeting ID:", meetingId);
-        console.log("Username:", username);
-        console.log("Transcript:", transcript);
 
-        if (!transcript || !transcript.trim()) {
+        console.log(
+            "========== ANALYZE MEETING =========="
+        );
+
+        console.log(
+            "Meeting ID:",
+            meetingId
+        );
+
+        console.log(
+            "Username:",
+            username
+        );
+
+        console.log(
+            "Transcript:",
+            transcript
+        );
+
+
+        // =================================================
+        // VALIDATION
+        // =================================================
+
+        if (
+            !transcript ||
+            !transcript.trim()
+        ) {
             return res.status(400).json({
                 message: "Transcript is required"
             });
         }
 
-        if (!meetingId) {
+
+        if (
+            !meetingId ||
+            !meetingId.trim()
+        ) {
             return res.status(400).json({
                 message: "Meeting ID is required"
             });
         }
 
-        if (!username || !username.trim()) {
+
+        if (
+            !username ||
+            !username.trim()
+        ) {
             return res.status(400).json({
                 message: "Username is required"
             });
         }
+
+
+        const cleanMeetingId =
+            meetingId.trim();
+
+        const cleanUsername =
+            username.trim();
+
+        const cleanTranscript =
+            transcript.trim();
+
+
+        // =================================================
+        // GROQ AI REQUEST
+        // =================================================
 
         const response = await fetch(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -98,6 +159,10 @@ const analyzeMeeting = async (req, res) => {
 
                     messages: [
 
+                        // ================================
+                        // SYSTEM PROMPT
+                        // ================================
+
                         {
                             role: "system",
 
@@ -108,7 +173,7 @@ Analyze the ENTIRE meeting transcript carefully.
 
 The current user's username is:
 
-${username}
+${cleanUsername}
 
 Return ONLY a valid JSON object.
 
@@ -137,21 +202,17 @@ IMPORTANT RULES:
 
 2. keyPoints must contain important points from the ENTIRE meeting.
 
-3. actionItems must contain GENERAL action items discussed in the meeting,
-including tasks assigned to different employees.
+3. actionItems must contain GENERAL action items discussed in the meeting, including tasks assigned to different employees.
 
 4. myTasks must contain ONLY tasks assigned specifically to the current user.
 
 5. Do NOT put another employee's task inside myTasks.
 
-6. If the current user was not assigned any task,
-return an empty array for myTasks.
+6. If the current user was not assigned any task, return an empty array for myTasks.
 
-7. If the manager gives the current user a task,
-identify that task clearly in myTasks.
+7. If the manager gives the current user a task, identify that task clearly in myTasks.
 
-8. If the current user is asked to complete something,
-include that responsibility in myTasks.
+8. If the current user is asked to complete something, include that responsibility in myTasks.
 
 9. Do not invent tasks that were not discussed.
 
@@ -160,6 +221,7 @@ include that responsibility in myTasks.
 11. The username provided above represents the current user.
 
 12. If the transcript says things like:
+
 "Divya will..."
 "Divya, please..."
 "Divya has to..."
@@ -167,22 +229,26 @@ include that responsibility in myTasks.
 "You need to..."
 "Please handle..."
 
-and the current username is Divya,
-treat that as a possible personal task.
+and the current username is Divya, treat that as a possible personal task.
 
-13. Do not assume that a task belongs to the current user
-just because the current user is mentioned.
+13. Do not assume that a task belongs to the current user just because the current user is mentioned.
 
-14. Only add a task to myTasks when the meeting discussion
-indicates that the current user is responsible for it.
+14. Only add a task to myTasks when the meeting discussion indicates that the current user is responsible for it.
 
 15. Return valid JSON only.
 `
                         },
 
+
+                        // ================================
+                        // MEETING TRANSCRIPT
+                        // ================================
+
                         {
                             role: "user",
-                            content: transcript
+
+                            content:
+                                cleanTranscript
                         }
 
                     ],
@@ -192,13 +258,26 @@ indicates that the current user is responsible for it.
             }
         );
 
-        const data = await response.json();
 
-        console.log("GROQ RESPONSE:", data);
+        // =================================================
+        // GROQ RESPONSE
+        // =================================================
+
+        const data =
+            await response.json();
+
+        console.log(
+            "GROQ RESPONSE:",
+            data
+        );
+
 
         if (!response.ok) {
 
-            console.log("AI API ERROR:", data);
+            console.log(
+                "AI API ERROR:",
+                data
+            );
 
             return res.status(500).json({
                 message: "AI API failed",
@@ -206,8 +285,14 @@ indicates that the current user is responsible for it.
             });
         }
 
+
+        // =================================================
+        // GET AI CONTENT
+        // =================================================
+
         let result =
             data.choices?.[0]?.message?.content;
+
 
         if (!result) {
 
@@ -216,18 +301,30 @@ indicates that the current user is responsible for it.
             });
         }
 
+
+        // Remove markdown if AI accidentally adds it
         result = result
-            .replace(/```json/g, "")
+            .replace(/```json/gi, "")
             .replace(/```/g, "")
             .trim();
 
-        console.log("AI RESULT:", result);
+
+        console.log(
+            "AI RESULT:",
+            result
+        );
+
+
+        // =================================================
+        // PARSE JSON
+        // =================================================
 
         let parsedResult;
 
         try {
 
-            parsedResult = JSON.parse(result);
+            parsedResult =
+                JSON.parse(result);
 
         } catch (error) {
 
@@ -242,22 +339,28 @@ indicates that the current user is responsible for it.
             });
         }
 
-        // ================================
+
+        // =================================================
         // SAFETY DEFAULTS
-        // ================================
+        // =================================================
 
         parsedResult.summary =
-            parsedResult.summary || "";
+            typeof parsedResult.summary === "string"
+                ? parsedResult.summary
+                : "";
+
 
         parsedResult.keyPoints =
             Array.isArray(parsedResult.keyPoints)
                 ? parsedResult.keyPoints
                 : [];
 
+
         parsedResult.actionItems =
             Array.isArray(parsedResult.actionItems)
                 ? parsedResult.actionItems
                 : [];
+
 
         parsedResult.myTasks =
             Array.isArray(parsedResult.myTasks)
@@ -265,20 +368,22 @@ indicates that the current user is responsible for it.
                 : [];
 
 
-        // ================================
-        // SAVE TO DATABASE
-        // ================================
+        // =================================================
+        // SAVE AI NOTES + TRANSCRIPT TO MONGODB
+        // =================================================
 
         const meeting =
             await LiveMeeting.findOneAndUpdate(
 
                 {
-                    meetingId: meetingId
+                    meetingId: cleanMeetingId
                 },
 
                 {
-                    username: username,
-                    transcript: transcript,
+                    username: cleanUsername,
+
+                    transcript:
+                        cleanTranscript,
 
                     summary:
                         parsedResult.summary,
@@ -299,48 +404,92 @@ indicates that the current user is responsible for it.
             );
 
 
+        // =================================================
+        // MEETING NOT FOUND
+        // =================================================
+
         if (!meeting) {
 
+            console.log(
+                "MEETING NOT FOUND:",
+                cleanMeetingId
+            );
+
             return res.status(404).json({
-                message: "Meeting not found"
+                message:
+                    "Meeting not found"
             });
         }
 
+
+        // =================================================
+        // SUCCESS LOGS
+        // =================================================
+
+        console.log(
+            "================================"
+        );
 
         console.log(
             "AI NOTES SAVED SUCCESSFULLY"
         );
 
         console.log(
+            "MEETING ID:",
+            meeting.meetingId
+        );
+
+        console.log(
             "SUMMARY:",
-            parsedResult.summary
+            meeting.summary
         );
 
         console.log(
             "KEY POINTS:",
-            parsedResult.keyPoints
+            meeting.keyPoints
         );
 
         console.log(
             "ACTION ITEMS:",
-            parsedResult.actionItems
+            meeting.actionItems
         );
 
         console.log(
             "MY TASKS:",
-            parsedResult.myTasks
+            meeting.myTasks
         );
 
+        console.log(
+            "================================"
+        );
+
+
+        // =================================================
+        // RESPONSE TO FRONTEND
+        // =================================================
 
         return res.status(200).json({
 
             message:
                 "Meeting analyzed successfully",
 
-            analysis:
-                parsedResult,
+            analysis: {
+
+                summary:
+                    parsedResult.summary,
+
+                keyPoints:
+                    parsedResult.keyPoints,
+
+                actionItems:
+                    parsedResult.actionItems,
+
+                myTasks:
+                    parsedResult.myTasks
+            },
 
             meeting
+
         });
 
 
@@ -352,13 +501,18 @@ indicates that the current user is responsible for it.
         );
 
         return res.status(500).json({
-            message: "Something went wrong",
-            error: error.message
+            message:
+                "Something went wrong",
+            error:
+                error.message
         });
     }
 };
 
-// ==================== EXPORT ====================
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 export {
     transcribeAudio,

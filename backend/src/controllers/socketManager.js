@@ -4,6 +4,7 @@ import { Server } from "socket.io"
 let connections = {}
 let messages = {}
 let timeOnline = {}
+let meetingTranscripts = {}
 
 export const connectToSocket = (server) => {
     const io = new Server(server, {
@@ -49,6 +50,57 @@ export const connectToSocket = (server) => {
         socket.on("signal", (toId, message) => {
             io.to(toId).emit("signal", socket.id, message);
         })
+
+    socket.on("meeting-transcript", (data) => {
+
+    const [matchingRoom, found] =
+        Object.entries(connections)
+            .reduce(
+                ([room, isFound], [roomKey, roomValue]) => {
+
+                    if (!isFound && roomValue.includes(socket.id)) {
+                        return [roomKey, true];
+                    }
+
+                    return [room, isFound];
+                },
+                ["", false]
+            );
+
+    if (!found) {
+        console.log("Transcript room not found");
+        return;
+    }
+
+    if (!meetingTranscripts[matchingRoom]) {
+        meetingTranscripts[matchingRoom] = [];
+    }
+
+    const transcriptEntry = {
+        speaker: data.speaker,
+        text: data.text,
+        timestamp: new Date()
+    };
+
+    meetingTranscripts[matchingRoom].push(transcriptEntry);
+
+    console.log(
+        "TRANSCRIPT:",
+        matchingRoom,
+        "=>",
+        data.speaker,
+        ":",
+        data.text
+    );
+
+    // Send updated transcript to everyone in meeting
+    connections[matchingRoom].forEach((socketId) => {
+        io.to(socketId).emit(
+            "transcript-update",
+            meetingTranscripts[matchingRoom]
+        );
+    });
+});
 
         socket.on("chat-message", (data, sender) => {
 

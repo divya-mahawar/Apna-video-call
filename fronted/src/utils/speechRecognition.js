@@ -151,7 +151,6 @@ export const startSpeechRecognition = ({
     return recognition;
 };
 
-
 export const stopSpeechRecognition = (
     recognitionInstance
 ) => {
@@ -160,18 +159,19 @@ export const stopSpeechRecognition = (
         "STOP SPEECH RECOGNITION"
     );
 
+    // Restart completely band
     shouldRestart = false;
 
+    // Pending restart timer cancel
     clearTimeout(restartTimer);
 
     if (recognitionInstance) {
 
         try {
 
-            recognitionInstance.onstart = null;
-            recognitionInstance.onresult = null;
-            recognitionInstance.onerror = null;
-            recognitionInstance.onend = null;
+            // IMPORTANT:
+            // onresult ko null mat karo
+            // taaki final speech result process ho sake.
 
             recognitionInstance.stop();
 

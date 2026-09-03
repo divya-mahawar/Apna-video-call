@@ -33,15 +33,6 @@ import server from "../environment";
 const server_url = server;
 
 
-// =====================================================
-// MEETING ID
-// =====================================================
-
-const meetingId =
-    window.location.pathname.split("/").pop();
-
-console.log("CURRENT MEETING ID:", meetingId);
-
 
 // =====================================================
 // WEBRTC
@@ -72,16 +63,17 @@ export default function VideoMeetComponent() {
     const socketIdRef = useRef();
 
     const recognitionRef = useRef(null);
-   const transcriptRef = useRef("");
+   const transcriptRef = useRef([]);
+   const meetingIdRef = useRef(null);
 
     const localVideoref = useRef();
 
     const videoRef = useRef([]);
 
 
-    // =================================================
+    
     // AI STATES
-    // =================================================
+ 
 
     const [transcript, setTranscript] = useState("");
 
@@ -637,10 +629,14 @@ export default function VideoMeetComponent() {
                     "Socket connected"
                 );
 
-
+             console.log(
+            "JOINING SOCKET ROOM:",
+            meetingIdRef.current
+        ); 
+         
                 socketRef.current.emit(
                     "join-call",
-                    window.location.href
+                      meetingIdRef.current
                 );
 
 
@@ -1122,19 +1118,38 @@ export default function VideoMeetComponent() {
             setIsListening(true);
         },
 
-        onResult: text => {
+       onResult: text => {
 
-            console.log("AI TEXT:", text);
+    console.log("AI TEXT:", text);
+    console.log("SPEAKER:", username);
 
-            transcriptRef.current =
-                transcriptRef.current
-                    ? transcriptRef.current + " " + text
-                    : text;
+    const transcriptEntry = {
+        speaker: username,
+        text: text
+    };
 
-            setTranscript(
-                transcriptRef.current
-            );
-        },
+    // Store speaker-wise transcript locally
+    transcriptRef.current = [
+        ...transcriptRef.current,
+        transcriptEntry
+    ];
+
+    // Send speaker-wise transcript to backend
+    if (socketRef.current) {
+
+        socketRef.current.emit(
+            "meeting-transcript",
+            transcriptEntry
+        );
+    }
+
+    // Display transcript in UI
+    setTranscript(prev =>
+        prev
+            ? `${prev}\n${username}: ${text}`
+            : `${username}: ${text}`
+    );
+},
 
         onError: error => {
 
@@ -1151,43 +1166,29 @@ export default function VideoMeetComponent() {
             console.log(
                 "AI ENDED"
             );
+            setIsListening(false);
+    recognitionRef.current = null;
         }
     });
 };
-    // =================================================
+
     // ANALYZE MEETING
-    // =================================================
 
-    const analyzeMeeting = async (finalTranscript) => {
-
-    if (!finalTranscript || !finalTranscript.trim()) {
-
-        console.log(
-            "No transcript available"
-        );
-
-        return null;
-    }
-
+const analyzeMeeting = async (transcriptToAnalyze) => {
     try {
 
+        console.log("========== AI ANALYSIS ==========");
+        console.log("MEETING ID:", meetingIdRef.current);
+        console.log("USERNAME:", username);
         console.log(
-            "Sending transcript for AI analysis..."
-        );
-             console.log(
-            "Meeting ID:",
-            meetingId
+            "TRANSCRIPT SENT TO AI:",
+            transcriptToAnalyze
         );
 
-        console.log(
-            "Username:",
-            username
-        );
-
-        console.log(
-            "Transcript:",
-            finalTranscript
-        );
+        if (!transcriptToAnalyze?.trim()) {
+            console.log("No transcript to analyze");
+            return;
+        }
 
         const response = await fetch(
             `${server_url}/api/v1/ai/analyze-meeting`,
@@ -1195,34 +1196,26 @@ export default function VideoMeetComponent() {
                 method: "POST",
 
                 headers: {
-                    "Content-Type":
-                        "application/json"
+                    "Content-Type": "application/json"
                 },
 
                 body: JSON.stringify({
-
-                    meetingId:
-                        meetingId,
-
-                    username:
-                        username,
-
-                    transcript:
-                        finalTranscript
+                    meetingId: meetingIdRef.current,
+                    username: username,
+                    transcript: transcriptToAnalyze
                 })
             }
         );
 
-          console.log(
+        console.log(
             "AI RESPONSE STATUS:",
             response.status
         );
 
-        const data =
-            await response.json();
+        const data = await response.json();
 
         console.log(
-            "AI ANALYSIS RESPONSE:",
+            "AI NOTES:",
             data
         );
 
@@ -1233,47 +1226,87 @@ export default function VideoMeetComponent() {
                 data
             );
 
-            return null;
+            return;
         }
 
-        if (data.analysis) {
+        // =========================================
+        // AI ANALYSIS RESULT
+        // =========================================
 
-            setSummary(
-                data.analysis.summary || ""
+        const analysis = data.analysis;
+
+        if (!analysis) {
+
+            console.log(
+                "AI analysis object missing"
             );
 
-            setKeyPoints(
-                data.analysis.keyPoints || []
-            );
-
-            setActionItems(
-                data.analysis.actionItems || []
-            );
-
-             setMyTasks(
-        data.analysis.myTasks || []
-    );
+            return;
         }
 
         console.log(
-            "Meeting analysis saved successfully"
+            "SUMMARY:",
+            analysis.summary
         );
 
-        return data;
+        console.log(
+            "KEY POINTS:",
+            analysis.keyPoints
+        );
+
+        console.log(
+            "ACTION ITEMS:",
+            analysis.actionItems
+        );
+
+        console.log(
+            "MY TASKS:",
+            analysis.myTasks
+        );
+
+
+        // =========================================
+        // SHOW AI RESULT IN MEETING UI
+        // =========================================
+
+        setSummary(
+            analysis.summary || ""
+        );
+
+        setKeyPoints(
+            Array.isArray(analysis.keyPoints)
+                ? analysis.keyPoints
+                : []
+        );
+
+        setActionItems(
+            Array.isArray(analysis.actionItems)
+                ? analysis.actionItems
+                : []
+        );
+
+        setMyTasks(
+            Array.isArray(analysis.myTasks)
+                ? analysis.myTasks
+                : []
+        );
+
+
+        console.log(
+            "AI RESULT DISPLAYED SUCCESSFULLY"
+        );
 
     } catch (error) {
 
         console.log(
-            "AI analysis request error:",
+            "Analyze meeting error:",
             error
         );
-
-        return null;
     }
 };
-    // =================================================
+   
     // VIDEO BUTTON
-    // =================================================
+  
 
     const handleVideo = () => {
 
@@ -1307,11 +1340,13 @@ export default function VideoMeetComponent() {
     };
 
 
-    // =================================================
-    // END CALL
-    // =================================================
+// =================================================
+// END CALL
+// =================================================
 
-   const handleEndCall = async () => {
+const handleEndCall = async () => {
+
+    console.log("END CALL CLICKED");
 
     try {
 
@@ -1321,20 +1356,7 @@ export default function VideoMeetComponent() {
 
 
         // =========================================
-        // 1. GET FINAL TRANSCRIPT
-        // =========================================
-
-        const finalTranscript =
-            transcriptRef.current.trim();
-
-        console.log(
-            "FINAL TRANSCRIPT:",
-            finalTranscript
-        );
-
-
-        // =========================================
-        // 2. STOP AI LISTENING
+        // 1. STOP AI LISTENING FIRST
         // =========================================
 
         if (recognitionRef.current) {
@@ -1354,13 +1376,97 @@ export default function VideoMeetComponent() {
 
 
         // =========================================
-        // 3. AI ANALYSIS + SAVE NOTES
+        // 2. GET COMPLETE TRANSCRIPT
+        // =========================================
+
+        const finalTranscript =
+            transcriptRef.current
+                .filter(
+                    entry =>
+                        entry &&
+                        entry.text &&
+                        entry.text.trim()
+                )
+                .map(
+                    entry =>
+                        `${entry.speaker}: ${entry.text.trim()}`
+                )
+                .join("\n")
+                .trim();
+
+
+        console.log(
+            "========== FINAL TRANSCRIPT =========="
+        );
+
+        console.log(finalTranscript);
+
+
+        // =========================================
+        // 3. SAVE TRANSCRIPT + END MEETING
+        // =========================================
+
+        console.log(
+            "Ending meeting in database..."
+        );
+
+        const endResponse =
+            await fetch(
+                `${server_url}/api/v1/meetings/end`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        meetingId:
+                            meetingIdRef.current,
+
+                        username:
+                            username,
+
+                        transcript:
+                            finalTranscript
+
+                    })
+                }
+            );
+
+
+        const endData =
+            await endResponse.json();
+
+
+        console.log(
+            "MEETING END RESPONSE:",
+            endData
+        );
+
+
+        if (!endResponse.ok) {
+
+            console.log(
+                "Meeting end failed:",
+                endData
+            );
+
+            // Meeting end fail ho jaye
+            // tab bhi local cleanup karenge
+
+        }
+
+
+        // =========================================
+        // 4. AI ANALYSIS
         // =========================================
 
         if (finalTranscript) {
 
             console.log(
-                "Sending transcript for analysis..."
+                "========== SENDING TO AI =========="
             );
 
             await analyzeMeeting(
@@ -1370,70 +1476,7 @@ export default function VideoMeetComponent() {
         } else {
 
             console.log(
-                "No transcript available"
-            );
-        }
-
-
-        // =========================================
-        // 4. MARK MEETING AS ENDED
-        // =========================================
-
-        console.log(
-            "Ending meeting in database..."
-        );
-
-        try {
-
-            const endResponse =
-                await fetch(
-                    `${server_url}/api/v1/meetings/end`,
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-
-                            meetingId:
-                                meetingId,
-
-                            username:
-                                username,
-
-                            transcript:
-                                finalTranscript
-                        })
-                    }
-                );
-
-
-            const endData =
-                await endResponse.json();
-
-
-            console.log(
-                "MEETING END RESPONSE:",
-                endData
-            );
-
-
-            if (!endResponse.ok) {
-
-                console.log(
-                    "Meeting end failed:",
-                    endData
-                );
-            }
-
-        } catch (error) {
-
-            console.log(
-                "End meeting API error:",
-                error
+                "No transcript available for AI"
             );
         }
 
@@ -1509,12 +1552,21 @@ export default function VideoMeetComponent() {
 
 
         // =========================================
-        // 9. GO HOME
+        // 9. FINAL LOG
         // =========================================
+
+        console.log(
+            "========== MEETING END COMPLETE =========="
+        );
 
         console.log(
             "Meeting ended successfully."
         );
+
+
+        // =========================================
+        // 10. GO HOME
+        // =========================================
 
         console.log(
             "Going to home..."
@@ -1522,6 +1574,7 @@ export default function VideoMeetComponent() {
 
         window.location.href =
             "/home";
+
 
     } catch (error) {
 
@@ -1531,12 +1584,46 @@ export default function VideoMeetComponent() {
         );
 
         // Even if something fails,
-        // take user back home.
+        // stop local resources
+
+        try {
+
+            if (window.localStream) {
+
+                window.localStream
+                    .getTracks()
+                    .forEach(track => {
+                        track.stop();
+                    });
+
+                window.localStream = null;
+            }
+
+            if (socketRef.current) {
+
+                socketRef.current.disconnect();
+
+                socketRef.current = null;
+            }
+
+        } catch (cleanupError) {
+
+            console.log(
+                "Cleanup error:",
+                cleanupError
+            );
+        }
+
+
+        // User ko home bhejo
 
         window.location.href =
             "/home";
     }
 };
+
+
+  
 
     // =================================================
     // CHAT
@@ -1613,12 +1700,18 @@ export default function VideoMeetComponent() {
 
     console.log("========== CONNECT CALLED ==========");
 
-    // URL se meeting ID nikalo
+
     const currentMeetingId = window.location.pathname
         .split("/")
         .filter(Boolean)
         .pop()
         ?.trim();
+   meetingIdRef.current = currentMeetingId;
+
+console.log(
+    "ACTIVE MEETING ID:",
+    meetingIdRef.current
+);
 
     console.log("CURRENT URL:", window.location.href);
     console.log("CURRENT MEETING ID:", currentMeetingId);
@@ -1974,6 +2067,41 @@ export default function VideoMeetComponent() {
                             </div>
 
                         </div>
+                        {/* MY TASKS */}
+
+<div className={styles.aiSection}>
+
+    <h3>
+        🎯 My Tasks
+    </h3>
+
+    <div className={styles.aiBox}>
+
+        {myTasks.length > 0 ? (
+
+            <ul>
+
+                {myTasks.map(
+                    (task, index) => (
+
+                        <li key={index}>
+                            {task}
+                        </li>
+
+                    )
+                )}
+
+            </ul>
+
+        ) : (
+
+            "No personal tasks assigned..."
+
+        )}
+
+    </div>
+
+</div>
 
                     </div>
 

@@ -6,8 +6,17 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Box from "@mui/material/Box";
 
 import HomeIcon from "@mui/icons-material/Home";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import EventNoteIcon from "@mui/icons-material/EventNote";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import LightbulbIcon from "@mui/icons-material/Lightbulb";
+import TaskAltIcon from "@mui/icons-material/TaskAlt";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 import server from "../environment";
 
@@ -18,11 +27,17 @@ export default function History() {
 
     const routeTo = useNavigate();
 
+    // =====================================================
+    // GET MEETING HISTORY
+    // =====================================================
+
     useEffect(() => {
 
         const fetchHistory = async () => {
 
             try {
+
+                console.log("HISTORY API CALLING...");
 
                 const response = await fetch(
                     `${server}/api/v1/meetings/history`
@@ -56,6 +71,10 @@ export default function History() {
     }, []);
 
 
+    // =====================================================
+    // FORMAT DATE
+    // =====================================================
+
     const formatDate = (dateString) => {
 
         if (!dateString) {
@@ -66,317 +85,764 @@ export default function History() {
 
         return date.toLocaleString("en-IN", {
             day: "2-digit",
-            month: "2-digit",
+            month: "short",
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit"
         });
     };
-  
-const openMeeting = async (meetingId) => {
+
+
+    // =====================================================
+    // OPEN SINGLE MEETING
+    // =====================================================
+
+    const openMeeting = async (meetingId) => {
+
+        try {
+
+            console.log(
+                "OPENING MEETING:",
+                meetingId
+            );
+
+            const response = await fetch(
+                `${server}/api/v1/meetings/${meetingId}`
+            );
+
+            const data = await response.json();
+
+            console.log(
+                "SINGLE MEETING RESPONSE:",
+                data
+            );
+
+            if (!response.ok) {
+
+                console.log(
+                    "Failed to fetch meeting:",
+                    data
+                );
+
+                return;
+            }
+
+            setSelectedMeeting(data.meeting);
+
+        } catch (error) {
+
+            console.log(
+                "Open meeting error:",
+                error
+            );
+        }
+    };
+
+
+    // =====================================================
+// DELETE MEETING
+// =====================================================
+
+const deleteMeeting = async (meetingId) => {
+
+    const confirmDelete = window.confirm(
+        `Are you sure you want to delete "${meetingId}"?`
+    );
+
+    if (!confirmDelete) {
+        return;
+    }
 
     try {
 
-        console.log("OPENING MEETING:", meetingId);
+        console.log("DELETING MEETING:", meetingId);
 
         const response = await fetch(
-            `${server}/api/v1/meetings/${meetingId}`
+            `${server}/api/v1/meetings/${meetingId}`,
+            {
+                method: "DELETE"
+            }
         );
 
         const data = await response.json();
 
-        console.log(
-            "SINGLE MEETING RESPONSE:",
-            data
-        );
+        console.log("DELETE RESPONSE:", data);
 
         if (!response.ok) {
-            console.log(
-                "Failed to fetch meeting:",
-                data
-            );
+            alert(data.message || "Failed to delete meeting");
             return;
         }
 
-        setSelectedMeeting(data.meeting);
+        setMeetings((prevMeetings) =>
+            prevMeetings.filter(
+                (meeting) =>
+                    meeting.meetingId !== meetingId
+            )
+        );
+
+        alert("Meeting deleted successfully");
 
     } catch (error) {
 
-        console.log(
-            "Open meeting error:",
-            error
-        );
+        console.log("Delete meeting error:", error);
+
+        alert("Failed to delete meeting");
     }
 };
+
+
+
+    // =====================================================
+    // MEETING LIST
+    // =====================================================
+
+    if (!selectedMeeting) {
+
+        return (
+
+            <div
+                style={{
+                    minHeight: "100vh",
+                    background:
+                        "linear-gradient(135deg, #f5f7ff 0%, #eef2ff 50%, #f8faff 100%)",
+                    padding: "30px 20px"
+                }}
+            >
+
+                {/* HEADER */}
+
+                <div
+                    style={{
+                        maxWidth: "1000px",
+                        margin: "0 auto"
+                    }}
+                >
+
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginBottom: "30px"
+                        }}
+                    >
+
+                        <IconButton
+                            onClick={() => routeTo("/home")}
+                            style={{
+                                background: "white",
+                                boxShadow:
+                                    "0 4px 15px rgba(0,0,0,0.08)",
+                                marginRight: "15px"
+                            }}
+                        >
+                            <HomeIcon />
+                        </IconButton>
+
+
+                        <div>
+
+                            <Typography
+                                variant="h4"
+                                style={{
+                                    fontWeight: "700"
+                                }}
+                            >
+                                Meeting History
+                            </Typography>
+
+                            <Typography
+                                color="text.secondary"
+                            >
+                                Review your previous AI-powered meetings
+                            </Typography>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* MEETING COUNT */}
+
+                    <div
+                        style={{
+                            marginBottom: "20px"
+                        }}
+                    >
+
+                        <Chip
+                            icon={<EventNoteIcon />}
+                            label={`${meetings.length} Meeting${meetings.length !== 1 ? "s" : ""}`}
+                            variant="outlined"
+                        />
+
+                    </div>
+
+
+                    {/* EMPTY STATE */}
+
+                    {meetings.length === 0 ? (
+
+                        <Card
+                            style={{
+                                borderRadius: "20px",
+                                textAlign: "center",
+                                padding: "50px 20px",
+                                boxShadow:
+                                    "0 8px 30px rgba(0,0,0,0.06)"
+                            }}
+                        >
+
+                            <EventNoteIcon
+                                style={{
+                                    fontSize: "60px",
+                                    opacity: 0.4,
+                                    marginBottom: "15px"
+                                }}
+                            />
+
+                            <Typography
+                                variant="h6"
+                                style={{
+                                    fontWeight: "600"
+                                }}
+                            >
+                                No meetings found
+                            </Typography>
+
+                            <Typography
+                                color="text.secondary"
+                            >
+                                Your completed meetings will appear here.
+                            </Typography>
+
+                        </Card>
+
+                    ) : (
+
+                        <div>
+
+                            {meetings.map((meeting) => (
+
+                               <Card
+    key={meeting._id}
+    style={{
+        marginBottom: "16px",
+        borderRadius: "18px",
+        border: "1px solid rgba(0,0,0,0.06)",
+        boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
+        transition: "all 0.25s ease"
+    }}
+    onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-3px)";
+        e.currentTarget.style.boxShadow =
+            "0 12px 30px rgba(0,0,0,0.12)";
+    }}
+    onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow =
+            "0 6px 20px rgba(0,0,0,0.06)";
+    }}
+>
+    <CardContent>
+
+        <div
+            style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+            }}
+        >
+
+            {/* MEETING INFO */}
+            <div
+                onClick={() =>
+                    openMeeting(meeting.meetingId)
+                }
+                style={{
+                    flex: 1,
+                    cursor: "pointer"
+                }}
+            >
+
+                <Typography
+                    variant="h6"
+                    style={{
+                        fontWeight: "700",
+                        marginBottom: "8px"
+                    }}
+                >
+                    🎥 {meeting.meetingId}
+                </Typography>
+
+                <Typography
+                    color="text.secondary"
+                    style={{
+                        marginBottom: "5px"
+                    }}
+                >
+                    👤 {meeting.username || "Unknown user"}
+                </Typography>
+
+                <Typography
+                    color="text.secondary"
+                    variant="body2"
+                >
+                    📅 {formatDate(meeting.startTime)}
+                </Typography>
+
+            </div>
+
+
+            {/* RIGHT SIDE */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px"
+                }}
+            >
+
+                {/* DELETE BUTTON */}
+                <IconButton
+                    onClick={(e) => {
+                        e.stopPropagation();
+
+                        deleteMeeting(
+                            meeting.meetingId
+                        );
+                    }}
+                    title="Delete meeting"
+                >
+                    <DeleteIcon />
+                </IconButton>
+
+
+                {/* OPEN ARROW */}
+                <ArrowForwardIosIcon
+                    style={{
+                        opacity: 0.5
+                    }}
+                />
+
+            </div>
+
+        </div>
+
+    </CardContent>
+</Card>
+                            ))}
+
+                        </div>
+
+                    )}
+
+                </div>
+
+            </div>
+        );
+    }
+
+
+    // =====================================================
+    // SINGLE MEETING NOTES
+    // =====================================================
 
     return (
 
         <div
             style={{
-                padding: "30px",
-                minHeight: "100vh"
+                minHeight: "100vh",
+                background:
+                    "linear-gradient(135deg, #f5f7ff 0%, #eef2ff 50%, #f8faff 100%)",
+                padding: "30px 20px"
             }}
         >
 
-            {/* HOME BUTTON */}
-
-            <IconButton
-                onClick={() => routeTo("/home")}
+            <div
+                style={{
+                    maxWidth: "1000px",
+                    margin: "0 auto"
+                }}
             >
-                <HomeIcon />
-            </IconButton>
 
+                {/* TOP BAR */}
 
-            <h1>
-                Meeting History
-            </h1>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "25px"
+                    }}
+                >
 
+                    <Button
+                        variant="outlined"
+                        startIcon={<HomeIcon />}
+                        onClick={() =>
+                            routeTo("/home")
+                        }
+                    >
+                        Home
+                    </Button>
 
-            {/* =========================
-                MEETING LIST
-            ========================= */}
-
-            {!selectedMeeting && (
-
-                <>
-                    {meetings.length === 0 ? (
-
-                        <Typography>
-                            No meetings found.
-                        </Typography>
-
-                    ) : (
-
-                        meetings.map((meeting) => (
-
-                            <Card
-                                key={meeting._id}
-                                variant="outlined"
-                                onClick={() =>
-                                   
-                                   openMeeting(meeting.meetingId)
-                                    
-                                }
-                                style={{
-                                    marginBottom: "15px",
-                                    cursor: "pointer"
-                                }}
-                            >
-
-                                <CardContent>
-
-                                    <Typography
-                                        variant="h6"
-                                    >
-                                        Meeting:{" "}
-                                        {meeting.meetingId}
-                                    </Typography>
-
-
-                                    <Typography
-                                        color="text.secondary"
-                                    >
-                                        Username:{" "}
-                                        {meeting.username || "N/A"}
-                                    </Typography>
-
-
-                                    <Typography
-                                        color="text.secondary"
-                                    >
-                                        Date:{" "}
-                                        {formatDate(
-                                            meeting.startTime
-                                        )}
-                                    </Typography>
-
-                                </CardContent>
-
-                            </Card>
-
-                        ))
-
-                    )}
-                </>
-
-            )}
-
-
-            {/* =========================
-                FULL MEETING NOTES
-            ========================= */}
-
-            {selectedMeeting && (
-
-                <div>
 
                     <Button
                         variant="outlined"
                         onClick={() =>
                             setSelectedMeeting(null)
                         }
-                        style={{
-                            marginBottom: "20px"
-                        }}
                     >
                         ← Back to History
                     </Button>
 
+                </div>
 
-                    <Card>
 
-                        <CardContent>
+                {/* MAIN HEADER */}
+
+                <Card
+                    style={{
+                        borderRadius: "22px",
+                        marginBottom: "20px",
+                        background:
+                            "linear-gradient(135deg, #667eea, #764ba2)",
+                        color: "white",
+                        boxShadow:
+                            "0 12px 35px rgba(102,126,234,0.3)"
+                    }}
+                >
+
+                    <CardContent
+                        style={{
+                            padding: "28px"
+                        }}
+                    >
+
+                        <Typography
+                            variant="h4"
+                            style={{
+                                fontWeight: "700",
+                                marginBottom: "15px"
+                            }}
+                        >
+                            📝 Meeting Notes
+                        </Typography>
+
+
+                        <Typography
+                            style={{
+                                marginBottom: "7px"
+                            }}
+                        >
+                            <b>Meeting ID:</b>{" "}
+                            {selectedMeeting.meetingId}
+                        </Typography>
+
+
+                        <Typography
+                            style={{
+                                marginBottom: "7px"
+                            }}
+                        >
+                            <b>Username:</b>{" "}
+                            {selectedMeeting.username ||
+                                "N/A"}
+                        </Typography>
+
+
+                        <Typography>
+                            <b>📅 Date:</b>{" "}
+                            {formatDate(
+                                selectedMeeting.startTime
+                            )}
+                        </Typography>
+
+                    </CardContent>
+
+                </Card>
+
+
+                {/* =================================================
+                    MY TASKS
+                ================================================= */}
+
+                <Card
+                    style={{
+                        borderRadius: "20px",
+                        marginBottom: "20px",
+                        border:
+                            "2px solid #e8eaff",
+                        boxShadow:
+                            "0 8px 25px rgba(0,0,0,0.06)"
+                    }}
+                >
+
+                    <CardContent>
+
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                                marginBottom: "15px"
+                            }}
+                        >
+
+                            <AssignmentTurnedInIcon />
 
                             <Typography
-                                variant="h4"
-                                gutterBottom
+                                variant="h6"
+                                style={{
+                                    fontWeight: "700"
+                                }}
                             >
-                                Meeting Notes
+                                My Tasks
                             </Typography>
 
-
-                            <Typography>
-                                <b>Meeting ID:</b>{" "}
-                                {selectedMeeting.meetingId}
-                            </Typography>
+                        </div>
 
 
-                            <Typography>
-                                <b>Username:</b>{" "}
-                                {selectedMeeting.username || "N/A"}
-                            </Typography>
+                        {selectedMeeting.myTasks?.length > 0 ? (
 
+                            selectedMeeting.myTasks.map(
+                                (task, index) => (
+
+                                    <div
+                                        key={index}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            gap: "10px",
+                                            padding: "12px",
+                                            marginBottom: "8px",
+                                            borderRadius: "10px",
+                                            background:
+                                                "#f7f8ff"
+                                        }}
+                                    >
+
+                                        <TaskAltIcon
+                                            fontSize="small"
+                                        />
+
+                                        <Typography>
+                                            {task}
+                                        </Typography>
+
+                                    </div>
+
+                                )
+                            )
+
+                        ) : (
 
                             <Typography
                                 color="text.secondary"
-                                style={{
-                                    marginBottom: "25px"
-                                }}
                             >
-                                <b>Date:</b>{" "}
-                                {formatDate(
-                                    selectedMeeting.startTime
-                                )}
+                                No personal tasks assigned.
                             </Typography>
 
+                        )}
 
-                            {/* SUMMARY */}
+                    </CardContent>
+
+                </Card>
+
+
+                {/* =================================================
+                    SUMMARY
+                ================================================= */}
+
+                <Card
+                    style={{
+                        borderRadius: "20px",
+                        marginBottom: "20px",
+                        boxShadow:
+                            "0 8px 25px rgba(0,0,0,0.06)"
+                    }}
+                >
+
+                    <CardContent>
+
+                        <Typography
+                            variant="h6"
+                            style={{
+                                fontWeight: "700",
+                                marginBottom: "12px"
+                            }}
+                        >
+                            📋 Summary
+                        </Typography>
+
+                        <Divider
+                            style={{
+                                marginBottom: "15px"
+                            }}
+                        />
+
+                        <Typography
+                            style={{
+                                lineHeight: "1.8"
+                            }}
+                        >
+                            {selectedMeeting.summary ||
+                                "No summary available."}
+                        </Typography>
+
+                    </CardContent>
+
+                </Card>
+
+
+                {/* =================================================
+                    KEY POINTS
+                ================================================= */}
+
+                <Card
+                    style={{
+                        borderRadius: "20px",
+                        marginBottom: "20px",
+                        boxShadow:
+                            "0 8px 25px rgba(0,0,0,0.06)"
+                    }}
+                >
+
+                    <CardContent>
+
+                        <Typography
+                            variant="h6"
+                            style={{
+                                fontWeight: "700",
+                                marginBottom: "12px"
+                            }}
+                        >
+                            💡 Key Points
+                        </Typography>
+
+                        <Divider
+                            style={{
+                                marginBottom: "15px"
+                            }}
+                        />
+
+
+                        {selectedMeeting.keyPoints?.length > 0 ? (
+
+                            selectedMeeting.keyPoints.map(
+                                (point, index) => (
+
+                                    <div
+                                        key={index}
+                                        style={{
+                                            display: "flex",
+                                            gap: "10px",
+                                            marginBottom: "12px"
+                                        }}
+                                    >
+
+                                        <LightbulbIcon
+                                            fontSize="small"
+                                        />
+
+                                        <Typography>
+                                            {point}
+                                        </Typography>
+
+                                    </div>
+
+                                )
+                            )
+
+                        ) : (
 
                             <Typography
-                                variant="h6"
+                                color="text.secondary"
                             >
-                                📋 Summary
+                                No key points available.
                             </Typography>
+
+                        )}
+
+                    </CardContent>
+
+                </Card>
+
+
+                {/* =================================================
+                    ACTION ITEMS
+                ================================================= */}
+
+                <Card
+                    style={{
+                        borderRadius: "20px",
+                        marginBottom: "20px",
+                        boxShadow:
+                            "0 8px 25px rgba(0,0,0,0.06)"
+                    }}
+                >
+
+                    <CardContent>
+
+                        <Typography
+                            variant="h6"
+                            style={{
+                                fontWeight: "700",
+                                marginBottom: "12px"
+                            }}
+                        >
+                            ✅ Action Items
+                        </Typography>
+
+                        <Divider
+                            style={{
+                                marginBottom: "15px"
+                            }}
+                        />
+
+
+                        {selectedMeeting.actionItems?.length > 0 ? (
+
+                            selectedMeeting.actionItems.map(
+                                (item, index) => (
+
+                                    <div
+                                        key={index}
+                                        style={{
+                                            display: "flex",
+                                            gap: "10px",
+                                            marginBottom: "12px"
+                                        }}
+                                    >
+
+                                        <TaskAltIcon
+                                            fontSize="small"
+                                        />
+
+                                        <Typography>
+                                            {item}
+                                        </Typography>
+
+                                    </div>
+
+                                )
+                            )
+
+                        ) : (
 
                             <Typography
-                                style={{
-                                    marginBottom: "25px"
-                                }}
+                                color="text.secondary"
                             >
-                                {selectedMeeting.summary ||
-                                    "No summary available."}
+                                No action items available.
                             </Typography>
 
+                        )}
 
-                            {/* KEY POINTS */}
+                    </CardContent>
 
-                            <Typography
-                                variant="h6"
-                            >
-                                🔑 Key Points
-                            </Typography>
+                </Card>
 
-
-                            {selectedMeeting.keyPoints?.length > 0 ? (
-
-                                <ul>
-
-                                    {selectedMeeting.keyPoints.map(
-                                        (point, index) => (
-
-                                            <li key={index}>
-                                                {point}
-                                            </li>
-
-                                        )
-                                    )}
-
-                                </ul>
-
-                            ) : (
-
-                                <Typography>
-                                    No key points available.
-                                </Typography>
-
-                            )}
-
-
-                            {/* ACTION ITEMS */}
-
-                            <Typography
-                                variant="h6"
-                                style={{
-                                    marginTop: "25px"
-                                }}
-                            >
-                                ✅ Action Items
-                            </Typography>
-
-
-                            {selectedMeeting.actionItems?.length > 0 ? (
-
-                                <ul>
-
-                                    {selectedMeeting.actionItems.map(
-                                        (item, index) => (
-
-                                            <li key={index}>
-                                                {item}
-                                            </li>
-
-                                        )
-                                    )}
-
-                                </ul>
-
-                            ) : (
-
-                                <Typography>
-                                    No action items available.
-                                </Typography>
-
-                            )}
-
-
-                            {/* TRANSCRIPT */}
-
-                            <Typography
-                                variant="h6"
-                                style={{
-                                    marginTop: "25px"
-                                }}
-                            >
-                                📝 Transcript
-                            </Typography>
-
-
-                            <Typography
-                                style={{
-                                    whiteSpace: "pre-wrap"
-                                }}
-                            >
-                                {selectedMeeting.transcript ||
-                                    "No transcript available."}
-                            </Typography>
-
-                        </CardContent>
-
-                    </Card>
-
-                </div>
-
-            )}
+            </div>
 
         </div>
     );

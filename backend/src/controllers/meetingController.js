@@ -74,8 +74,8 @@ export const startMeeting = async (req, res) => {
 // =====================================================
 // END MEETING
 // =====================================================
-export const endMeeting = async (req, res) => {
 
+export const endMeeting = async (req, res) => {
     try {
 
         const {
@@ -84,7 +84,12 @@ export const endMeeting = async (req, res) => {
             transcript
         } = req.body;
 
-        if (!meetingId) {
+        console.log("========== END MEETING ==========");
+        console.log("MEETING ID:", meetingId);
+        console.log("USERNAME:", username);
+        console.log("TRANSCRIPT:", transcript);
+
+        if (!meetingId || !meetingId.trim()) {
             return res.status(400).json({
                 message: "Meeting ID is required"
             });
@@ -98,32 +103,31 @@ export const endMeeting = async (req, res) => {
             updateData.username = username;
         }
 
-        if (transcript) {
-            updateData.transcript = transcript;
+        if (transcript && transcript.trim()) {
+            updateData.transcript = transcript.trim();
         }
 
-        const meeting =
-            await LiveMeeting.findOneAndUpdate(
-                {
-                    meetingId,
-                    username
-                },
-                updateData,
-                {
-                    new: true
-                }
-            );
+        const meeting = await LiveMeeting.findOneAndUpdate(
+            {
+                meetingId: meetingId.trim()
+            },
+            updateData,
+            {
+                 returnDocument: "after"
+            }
+        );
 
         if (!meeting) {
+            console.log("MEETING NOT FOUND:", meetingId);
+
             return res.status(404).json({
                 message: "Meeting not found"
             });
         }
 
-        console.log(
-            "MEETING ENDED:",
-            meeting._id
-        );
+        console.log("MEETING UPDATED SUCCESSFULLY:");
+        console.log("ID:", meeting._id);
+        console.log("TRANSCRIPT:", meeting.transcript);
 
         return res.status(200).json({
             message: "Meeting ended",
@@ -132,10 +136,7 @@ export const endMeeting = async (req, res) => {
 
     } catch (error) {
 
-        console.log(
-            "End meeting error:",
-            error
-        );
+        console.log("End meeting error:", error);
 
         return res.status(500).json({
             message: "Failed to end meeting",
@@ -143,7 +144,6 @@ export const endMeeting = async (req, res) => {
         });
     }
 };
-
 // =====================================================
 // GET SINGLE MEETING
 // =====================================================
@@ -214,6 +214,56 @@ export const getMeetingHistory = async (req, res) => {
 
         return res.status(500).json({
             message: "Failed to get meeting history",
+            error: error.message
+        });
+    }
+};
+
+// =====================================================
+// DELETE MEETING
+// =====================================================
+
+export const deleteMeeting = async (req, res) => {
+    try {
+
+        const { meetingId } = req.params;
+
+        console.log("DELETE MEETING:", meetingId);
+
+        if (!meetingId) {
+            return res.status(400).json({
+                message: "Meeting ID is required"
+            });
+        }
+
+        const meeting = await LiveMeeting.findOneAndDelete({
+            meetingId: meetingId.trim()
+        });
+
+        if (!meeting) {
+            return res.status(404).json({
+                message: "Meeting not found"
+            });
+        }
+
+        console.log(
+            "MEETING DELETED:",
+            meeting.meetingId
+        );
+
+        return res.status(200).json({
+            message: "Meeting deleted successfully"
+        });
+
+    } catch (error) {
+
+        console.log(
+            "Delete meeting error:",
+            error
+        );
+
+        return res.status(500).json({
+            message: "Failed to delete meeting",
             error: error.message
         });
     }
